@@ -1,23 +1,40 @@
 ---
-author: Xinlei Huang (xhuang84), Jaccob Mau (jcmau2), Mohammad Khan (mfkahn5), Jonathan Temkin (jtemkin3)
+Author:  RandomM53
 output:
   html_document:
     theme: readable
     toc: true
   pdf_document: default
-title: Data Analysis Project - Proposal
+title: Factors Impacting Life Expectancy
 urlcolor: cyan
 editor_options: 
   markdown: 
     wrap: 72
 ---
 
-# Topic
+# Introduction
 
 This project will research factors that might predict life expectancy
-across multiple regions globally.
+across multiple regions globally. It is generally accepted that developed
+countries have lower mortality and higher lifespan than their less-developed peers.
+But how true is this assumption? And if these countries do indeed have lower mortality,
+which factors are most responsible?
 
-# Description of the data set
+Developed countries tend to have more resources, better nutrition
+standards and access to advanced medical infrastructure, all of which
+facilitate longevity. On the other hand, these countries may be more
+likely to suffer from higher rates of obesity or alcoholism, which can
+counteract those benefits. Moreover, the complex economies upon which
+these countries' development is predicated may result in more stressful
+lifestyles for their inhabitants, further harming mortality.
+
+Buddhist monks live in Nepal don't spend their sleeping time on swiping
+phones, breath car exhaust, or eat packaged food full of chemicals. It's
+true Nepal's GDP is far behind US, but do US residents live longer than
+Nepal people necessarily? Hopefully data analysis with this data set can
+shed some light.
+
+## Description of the data set
 
 For this project we propose using the `Life Expectancy (WHO)` data set
 which is available
@@ -80,30 +97,14 @@ kable(predictors)
 | income composition | Human Development Index in terms of income composition of resources (index ranging from 0 to 1) |
 | schooling | Number of years of Schooling(years) |
 
-# Why
-
-It is generally accepted that developed countries have lower mortality
-and higher lifespan than their less-developed peers. But how true is
-this assumption? And if these countries do indeed have lower mortality,
-which factors are most responsible?
-
-Developed countries tend to have more resources, better nutrition
-standards and access to advanced medical infrastructure, all of which
-facilitate longevity. On the other hand, these countries may be more
-likely to suffer from higher rates of obesity or alcoholism, which can
-counteract those benefits. Moreover, the complex economies upon which
-these countries' development is predicated may result in more stressful
-lifestyles for their inhabitants, further harming mortality.
-
-Buddhist monks live in Nepal don't spend their sleeping time on swiping
-phones, breath car exhaust, or eat packaged food full of chemicals. It's
-true Nepal's GDP is far behind US, but do US residents live longer than
-Nepal people necessarily? Hopefully data analysis with this data set can
-shed some light.
-
 # Methods
+## Data Cleaning
+Original variable names are not r-friendly. We will rename them to follow snake case for easy access on further analysis.
+- rename variables
+- convert category variables to factors
+- filter records based on column values
+- omit NA values
 
-## rename variables for easy access and convert category variables to factors
 ```{r}
 names(data)[names(data) == "Country"] = "country"
 names(data)[names(data) == "Year"] = "year"
@@ -136,19 +137,26 @@ data = subset(data, GDP > 0)
 data = na.omit(data)
 ```
 
-## generate a matrix of scatterplots of numeric variables
+## Identify Potential Transformations and Collinearity
+Plot a matrix of scatterplots to check shapes of curves for
+- `life_expectancy vs numeric predictors`
+- $Predictor_x$ vs $Predictor_y$
+
 ```{r}
 data_numeric_only = subset(data, select = -c(country, year, status))
 pairs(data_numeric_only)
 ```
+
 From above matrix of scatterplots, we can observe
-- colinearity
+- collinearity
   - `infant_death` and `under_5_death`
-  - `thinness_1_19` and `thinness_5_9`
+  - `thinness_5_9` and `thinness_1_19`
 - predictors with non-linear shape of curve against life expectancy
   - `percent_exp`
   - `hiv_aids`
   - `GDP`
+
+Take logarithm for predictors with non-linear shape of curve
 
 ```{r}
 data_transformed = data.frame(data)
@@ -157,17 +165,20 @@ data_transformed["log_hiv_aids"] = log(data_transformed$hiv_aids)
 data_transformed["log_GDP"] = log(data_transformed$GDP)
 ```
 
-### remove linearly correlated column and two category columns
+Remove linearly correlated column and two category columns `country` and `year`.
+- remove `thinness_5_9` and `infant_death` because they are subsets to `thiness_1_19` and `under_5_deaths` respectively
+- remove `year` to get rid of time series characteristic
+- remove `country` to mitigate geographic influence
+- omit NA values
+
 ```{r}
 data_cleaned = subset(data_transformed, select = -c(country, year, percent_exp, hiv_aids, GDP, thinness_5_9, infant_deaths))
-```
-
-### remove na
-```{r}
 data_cleaned = na.omit(data_cleaned)
 ```
 
+## Model Selection
 ### compare additive models with predictors and transformed predictors
+
 ```{r}
 fit_add_orign = lm(life_expectancy ~ ., data = subset(data, select = -c(country, year)))
 summary(fit_add_orign)
@@ -177,18 +188,28 @@ summary(fit_add_trans)
 Both models are significant under 0.01 significant level, and the one with transformed data has higher `r-squared` value. Further optimization will be based the data set `data_cleaned`.
 
 ### perform a regression with level 2 interaction
+
 ```{r}
 fit_int = lm(life_expectancy ~ .^2, data = data_cleaned)
-summary(fit_int)
 ```
 
+### compare the interaction model with additive model
+
+```{r}
+anova(fit_add_trans, fit_int)
+```
+`p-value` is small enough to reject the hypothesis that interactive predictors were in-significant, hence interactive model `fit_int` is preferred over the additive one.
+
 ### backward step-wise selection with AIC
+
 ```{r}
 fit_selected = step(fit_int, direction = "backward", trace = 0)
 summary(fit_selected)
 ```
 
-#### a smaller model with predictors with `p-value < 0.01`
+Noticed that not all selected predictors are significant with a high significance level such as 99%.
+Try to fit a simple model which excludes predictors with `p-value > 0.01`
+
 ```{r}
 df_coef = data.frame(summary(fit_selected)$coefficients)
 row.names(df_coef)[df_coef["Pr...t.."] < 0.01]
@@ -199,9 +220,6 @@ anova(fit_small, fit_selected)
 ```
 
 `fit_selected` is preferred over the smaller model on anova analysis, but how about the Test-Train Split?
-
-
-### meeting notes: compare additive with interaction also
 
 ```{r, warning=FALSE}
 set.seed(233)
@@ -268,17 +286,15 @@ kable(data.frame(model = c("Simple", "Complex"),
                  "Test RMSE" = c(tst_rmse_simple, tst_rmse_complex)))
 ```
 
+The simple model has lower RMSE on both train and test data sets. Simple model will be selected on further analysis.
 
-the simple model has lower RMSE on both train and test data sets. Simple model will be selected on further analysis.
-
-
-### Colinearity Analysis
+## Colinearity Analysis
 #### @Jonathon
 
-### Model Diagnostics
+## Model Diagnostics
 #### @Jaccob
 
-### Outlier Diagnostics
+## Outlier Diagnostics
 #### @Fahad
 
 
