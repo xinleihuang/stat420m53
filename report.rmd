@@ -1,0 +1,317 @@
+---
+author: Xinlei Huang (xhuang84), Jaccob Mau (jcmau2), Mohammad Khan (mfkahn5), Jonathan Temkin (jtemkin3)
+output:
+  html_document:
+    theme: readable
+    toc: true
+  pdf_document: default
+title: Data Analysis Project - Proposal
+urlcolor: cyan
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# Topic
+
+This project will research factors that might predict life expectancy
+across multiple regions globally.
+
+# Description of the data set
+
+For this project we propose using the `Life Expectancy (WHO)` data set
+which is available
+[here](https://www.kaggle.com/datasets/kumarajarshi/life-expectancy-who).
+The data is an amalgamation of two sources. The primary source is The
+Global Health Observatory (GHO) repository, which is maintained by the
+World Health Organization (WHO) for the purpose of tracking demographic
+and health factors impacting mortality. The data spans 193 countries and
+15 years, from 2000 to 2015. This dataset is supplemented with United
+Nations economic data. The resulting dataset will enable us to assess
+the impact of immunization, economic and social factors on mortality.
+
+The dataset was compiled by Deeksha Russel and Duan Wang. It is a
+curated subset of the Global Health Observatory database, with only
+those variables deemed most critical and representative being retained
+in the file dataset. The dataset has also been cleaned to remove
+countries for which data was incomplete.
+
+```{r}
+library(readr)
+data = read_csv('./data/life_expectancy.csv', show_col_types = FALSE)
+head(data)
+```
+
+There are 22 columns and 2938 records in the CSV file. `Life expectancy`
+will be used as the response variable, and the rest are predictor
+candidates. The table below lists out some important ones,
+
+```{r}
+library(knitr)
+predictors = data.frame(names = c("country", "status", "adult mortality", "infant deaths", "Alcohol", "BMI", "GDP", "Population", "Schooling"),
+                        types = c("categorical", "dummy", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"))
+kable(predictors)
+```
+
+## Column definitions
+
+| Name | Definition |
+|----|----|
+| country | country |
+| year | year |
+| status | Developed or Developing |
+| life expectancy | life expectancy in age |
+| adult mortality | Adult Mortality Rates of both sexes (probability of dying between 15 and 60 years per 1000 population) |
+| infant deaths | Number of Infant Deaths per 1000 population |
+| alcohol | Alcohol, recorded per capita (15+) consumption (in litres of pure alcohol) |
+| percentage expenditure | Expenditure on health as a percentage of Gross Domestic Product per capita (%) |
+| Hepatitis B | Hepatitis B (HepB) immunization coverage among 1-year-olds (%) |
+| Measles | Measles - number of reported cases per 1000 population |
+| BMI | Average Body Mass Index of entire population |
+| under-five deaths | Number of under-five deaths per 1000 population |
+| Polio | Polio (Pol3) immunization coverage among 1-year-old (%) |
+| total expenditure | General government expenditure on health as a percentage of total government expenditure (%) |
+| Diphtheria | Diphtheria tetanus toxoid and pertussis (DTP3) immunization coverage among 1-year-olds (%) |
+| HIV/AIDS | Deaths per 1 000 live births HIV/AIDS (0-4 years) |
+| GDP | Gross Domestic Product per capita (in USD) |
+| Population | Population of the country |
+| thinness 1-19 years | Prevalence of thinness among children and adolescents for Age 10 to 19 (% ) |
+| thinness 5-9 years | Prevalence of thinness among children for Age 5 to 9(%) |
+| income composition | Human Development Index in terms of income composition of resources (index ranging from 0 to 1) |
+| schooling | Number of years of Schooling(years) |
+
+# Why
+
+It is generally accepted that developed countries have lower mortality
+and higher lifespan than their less-developed peers. But how true is
+this assumption? And if these countries do indeed have lower mortality,
+which factors are most responsible?
+
+Developed countries tend to have more resources, better nutrition
+standards and access to advanced medical infrastructure, all of which
+facilitate longevity. On the other hand, these countries may be more
+likely to suffer from higher rates of obesity or alcoholism, which can
+counteract those benefits. Moreover, the complex economies upon which
+these countries' development is predicated may result in more stressful
+lifestyles for their inhabitants, further harming mortality.
+
+Buddhist monks live in Nepal don't spend their sleeping time on swiping
+phones, breath car exhaust, or eat packaged food full of chemicals. It's
+true Nepal's GDP is far behind US, but do US residents live longer than
+Nepal people necessarily? Hopefully data analysis with this data set can
+shed some light.
+
+# Methods
+
+## rename variables for easy access and convert category variables to factors
+```{r}
+names(data)[names(data) == "Country"] = "country"
+names(data)[names(data) == "Year"] = "year"
+names(data)[names(data) == "Status"] = "status"
+names(data)[names(data) == "Life expectancy"] = "life_expectancy"
+names(data)[names(data) == "Adult Mortality"] = "adult_mortality"
+names(data)[names(data) == "infant deaths"] = "infant_deaths"
+names(data)[names(data) == "Alcohol"] = "alcohol"
+names(data)[names(data) == "percentage expenditure"] = "percent_exp"
+names(data)[names(data) == "Hepatitis B"] = "hepatitis"
+names(data)[names(data) == "measles"] = "measles"
+names(data)[names(data) == "under-five deaths"] = "under_5_deaths"
+names(data)[names(data) == "Polio"] = "polio"
+names(data)[names(data) == "Total expenditure"] = "total_exp"
+names(data)[names(data) == "Diphtheria"] = "diphtheria"
+names(data)[names(data) == "HIV/AIDS"] = "hiv_aids"
+names(data)[names(data) == "Population"] = "population"
+names(data)[names(data) == "thinness  1-19 years"] = "thinness_1_19"
+names(data)[names(data) == "thinness 5-9 years"] = "thinness_5_9"
+names(data)[names(data) == "Income composition of resources"] = "HBI"
+names(data)[names(data) == "Schooling"] = "schooling"
+
+data$country = as.factor(data$country)
+data$year = as.factor(data$year)
+data$status = as.factor(data$status)
+
+data = subset(data, percent_exp > 0)
+data = subset(data, hiv_aids > 0)
+data = subset(data, GDP > 0)
+data = na.omit(data)
+```
+
+## generate a matrix of scatterplots of numeric variables
+```{r}
+data_numeric_only = subset(data, select = -c(country, year, status))
+pairs(data_numeric_only)
+```
+From above matrix of scatterplots, we can observe
+- colinearity
+  - `infant_death` and `under_5_death`
+  - `thinness_1_19` and `thinness_5_9`
+- predictors with non-linear shape of curve against life expectancy
+  - `percent_exp`
+  - `hiv_aids`
+  - `GDP`
+
+```{r}
+data_transformed = data.frame(data)
+data_transformed["log_percent_exp"] = log(data_transformed$percent_exp)
+data_transformed["log_hiv_aids"] = log(data_transformed$hiv_aids)
+data_transformed["log_GDP"] = log(data_transformed$GDP)
+```
+
+### remove linearly correlated column and two category columns
+```{r}
+data_cleaned = subset(data_transformed, select = -c(country, year, percent_exp, hiv_aids, GDP, thinness_5_9, infant_deaths))
+```
+
+### remove na
+```{r}
+data_cleaned = na.omit(data_cleaned)
+```
+
+### compare additive models with predictors and transformed predictors
+```{r}
+fit_add_orign = lm(life_expectancy ~ ., data = subset(data, select = -c(country, year)))
+summary(fit_add_orign)
+fit_add_trans = lm(life_expectancy ~ ., data = data_cleaned)
+summary(fit_add_trans)
+```
+Both models are significant under 0.01 significant level, and the one with transformed data has higher `r-squared` value. Further optimization will be based the data set `data_cleaned`.
+
+### perform a regression with level 2 interaction
+```{r}
+fit_int = lm(life_expectancy ~ .^2, data = data_cleaned)
+summary(fit_int)
+```
+
+### backward step-wise selection with AIC
+```{r}
+fit_selected = step(fit_int, direction = "backward", trace = 0)
+summary(fit_selected)
+```
+
+#### a smaller model with predictors with `p-value < 0.01`
+```{r}
+df_coef = data.frame(summary(fit_selected)$coefficients)
+row.names(df_coef)[df_coef["Pr...t.."] < 0.01]
+(predictor_formula_str = paste(row.names(df_coef)[df_coef["Pr...t.."] < 0.01][-1], collapse = " + "))
+fit_small = lm(life_expectancy ~ adult_mortality + Measles + BMI + polio + total_exp + population + thinness_1_19 + HBI + log_hiv_aids + status:adult_mortality + status:hepatitis + status:total_exp + status:thinness_1_19 + status:HBI + status:schooling + adult_mortality:BMI + adult_mortality:schooling + adult_mortality:log_hiv_aids + adult_mortality:log_GDP + alcohol:hepatitis + alcohol:Measles + alcohol:log_percent_exp + alcohol:log_hiv_aids + hepatitis:total_exp + hepatitis:log_percent_exp + BMI:population + BMI:thinness_1_19 + BMI:schooling + under_5_deaths:polio + under_5_deaths:HBI + under_5_deaths:schooling + polio:HBI + total_exp:thinness_1_19 + total_exp:HBI + diphtheria:HBI + diphtheria:schooling + thinness_1_19:HBI + thinness_1_19:schooling + thinness_1_19:log_hiv_aids + HBI:schooling + HBI:log_hiv_aids + schooling:log_percent_exp + schooling:log_GDP + log_percent_exp:log_GDP,
+               data = data_cleaned)
+anova(fit_small, fit_selected)
+```
+
+`fit_selected` is preferred over the smaller model on anova analysis, but how about the Test-Train Split?
+
+
+### meeting notes: compare additive with interaction also
+
+```{r, warning=FALSE}
+set.seed(233)
+total = nrow(data_cleaned)
+trn_idx = sample(total, floor(total * 0.8))
+data_trn = data_cleaned[trn_idx, ]
+data_tst = data_cleaned[-trn_idx, ]
+
+rmse <- function(model, new_data) {
+  y_hat = predict(model, newdata = new_data)
+  return(sqrt(mean((y_hat - data_tst$life_expectancy)^2)))
+}
+
+fit_complex = lm(life_expectancy ~ status + adult_mortality + alcohol + hepatitis + 
+    Measles + BMI + under_5_deaths + polio + total_exp + diphtheria + 
+    population + thinness_1_19 + HBI + schooling + log_percent_exp + 
+    log_hiv_aids + log_GDP + status:adult_mortality + status:alcohol + 
+    status:hepatitis + status:BMI + status:total_exp + status:thinness_1_19 + 
+    status:HBI + status:schooling + adult_mortality:BMI + adult_mortality:population + 
+    adult_mortality:schooling + adult_mortality:log_hiv_aids + 
+    adult_mortality:log_GDP + alcohol:hepatitis + alcohol:Measles + 
+    alcohol:BMI + alcohol:population + alcohol:HBI + alcohol:schooling + 
+    alcohol:log_percent_exp + alcohol:log_hiv_aids + hepatitis:Measles + 
+    hepatitis:total_exp + hepatitis:population + hepatitis:HBI + 
+    hepatitis:log_percent_exp + Measles:BMI + Measles:under_5_deaths + 
+    Measles:total_exp + Measles:HBI + Measles:log_percent_exp + 
+    Measles:log_hiv_aids + Measles:log_GDP + BMI:under_5_deaths + 
+    BMI:total_exp + BMI:diphtheria + BMI:population + BMI:thinness_1_19 + 
+    BMI:HBI + BMI:schooling + under_5_deaths:polio + under_5_deaths:total_exp + 
+    under_5_deaths:population + under_5_deaths:HBI + under_5_deaths:schooling + 
+    under_5_deaths:log_percent_exp + under_5_deaths:log_hiv_aids + 
+    under_5_deaths:log_GDP + polio:total_exp + polio:population + 
+    polio:HBI + total_exp:diphtheria + total_exp:thinness_1_19 + 
+    total_exp:HBI + total_exp:log_percent_exp + total_exp:log_GDP + 
+    diphtheria:HBI + diphtheria:schooling + diphtheria:log_percent_exp + 
+    population:HBI + population:log_percent_exp + population:log_hiv_aids + 
+    population:log_GDP + thinness_1_19:HBI + thinness_1_19:schooling + 
+    thinness_1_19:log_hiv_aids + thinness_1_19:log_GDP + HBI:schooling + 
+    HBI:log_hiv_aids + schooling:log_percent_exp + schooling:log_hiv_aids + 
+    schooling:log_GDP + log_percent_exp:log_GDP,
+    data = data_trn)
+fit_simple = lm(life_expectancy ~ adult_mortality + Measles + BMI + polio + total_exp + 
+    population + thinness_1_19 + HBI + log_hiv_aids + status:adult_mortality + 
+    status:hepatitis + status:total_exp + status:thinness_1_19 + 
+    status:HBI + status:schooling + adult_mortality:BMI + adult_mortality:schooling + 
+    adult_mortality:log_hiv_aids + adult_mortality:log_GDP + 
+    alcohol:hepatitis + alcohol:Measles + alcohol:log_percent_exp + 
+    alcohol:log_hiv_aids + hepatitis:total_exp + hepatitis:log_percent_exp + 
+    BMI:population + BMI:thinness_1_19 + BMI:schooling + under_5_deaths:polio + 
+    under_5_deaths:HBI + under_5_deaths:schooling + polio:HBI + 
+    total_exp:thinness_1_19 + total_exp:HBI + diphtheria:HBI + 
+    diphtheria:schooling + thinness_1_19:HBI + thinness_1_19:schooling + 
+    thinness_1_19:log_hiv_aids + HBI:schooling + HBI:log_hiv_aids + 
+    schooling:log_percent_exp + schooling:log_GDP + log_percent_exp:log_GDP,
+    data = data_trn)
+trn_rmse_complex = rmse(fit_complex, data_trn)
+tst_rmse_complex = rmse(fit_complex, data_tst)
+trn_rmse_simple = rmse(fit_simple, data_trn)
+tst_rmse_simple = rmse(fit_simple, data_tst)
+
+library(knitr)
+kable(data.frame(model = c("Simple", "Complex"),
+                 "Train RMSE" = c(trn_rmse_simple, trn_rmse_complex),
+                 "Test RMSE" = c(tst_rmse_simple, tst_rmse_complex)))
+```
+
+
+the simple model has lower RMSE on both train and test data sets. Simple model will be selected on further analysis.
+
+
+### Colinearity Analysis
+#### @Jonathon
+
+### Model Diagnostics
+#### @Jaccob
+
+### Outlier Diagnostics
+#### @Fahad
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

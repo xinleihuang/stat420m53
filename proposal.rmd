@@ -1,0 +1,75 @@
+---
+author: Xinlei Huang (xhuang84), Jaccob Mau (jcmau2), Mohammad Khan (mfkahn5), Jonathan Temkin (jtemkin3)
+output:
+  html_document:
+    theme: readable
+    toc: true
+  pdf_document: default
+title: Data Analysis Project - Proposal
+urlcolor: cyan
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# Topic
+
+This project will research factors that might predict life expectancy across multiple
+regions globally.
+
+# Description of the data set
+
+For this project we propose using the `Life Expectancy (WHO)` data set
+which is available
+[here](https://www.kaggle.com/datasets/kumarajarshi/life-expectancy-who).
+The data is an amalgamation of two sources. The primary source is The
+Global Health Observatory (GHO) repository, which is maintained by the
+World Health Organization (WHO) for the purpose of tracking demographic
+and health factors impacting mortality. The data spans 193 countries and
+15 years, from 2000 to 2015. This dataset is supplemented with United
+Nations economic data. The resulting dataset will enable us to assess
+the impact of immunization, economic and social factors on mortality.
+
+The dataset was compiled by Deeksha Russel and Duan Wang. It is a
+curated subset of the Global Health Observatory database, with only
+those variables deemed most critical and representative being retained in
+the file dataset. The dataset has also been cleaned to remove countries
+for which data was incomplete.
+
+```{r}
+library(readr)
+data = read_csv('./data/life_expectancy.csv', show_col_types = FALSE)
+head(data)
+```
+
+There are 22 columns and 2938 records in the CSV file. `Life expectancy`
+will be used as the response variable, and the rest are predictor
+candidates. The table below lists out some important ones,
+
+```{r}
+library(knitr)
+predictors = data.frame(names = c("country", "status", "adult mortality", "infant deaths", "Alcohol", "BMI", "GDP", "Population", "Schooling"),
+                        types = c("categorical", "dummy", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"))
+kable(predictors)
+```
+
+# Why
+
+It is generally accepted that developed countries have lower mortality
+and higher lifespan than their less-developed peers. But how true is
+this assumption? And if these countries do indeed have lower mortality,
+which factors are most responsible?
+
+Developed countries tend to have more resources, better nutrition
+standards and access to advanced medical infrastructure, all of which
+facilitate longevity. On the other hand, these countries may be more
+likely to suffer from higher rates of obesity or alcoholism, which can
+counteract those benefits. Moreover, the complex economies upon which
+these countries' development is predicated may result in more stressful
+lifestyles for their inhabitants, further harming mortality.
+
+Buddhist monks live in Nepal don't spend their sleeping time on swiping
+phones, breath car exhaust, or eat packaged food full of chemicals. It's
+true Nepal's GDP is far behind US, but do US residents live longer than
+Nepal people necessarily? Hopefully data analysis with this data set can
+shed some light.
