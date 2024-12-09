@@ -200,9 +200,12 @@ anova(fit_add_trans, fit_int)
 ```
 `p-value` is small enough to reject the hypothesis that interactive predictors were in-significant, hence interactive model `fit_int` is preferred over the additive one.
 
-### backward step-wise selection with AIC
+### backward step-wise selection with AIC for both the additive and interactive model
 
 ```{r}
+fit_add_selected = step(fit_add_trans, direction = "backward", trace = 0)
+summary(fit_add_selected)
+
 fit_selected = step(fit_int, direction = "backward", trace = 0)
 summary(fit_selected)
 ```
@@ -288,17 +291,89 @@ kable(data.frame(model = c("Simple", "Complex"),
 
 The simple model has lower RMSE on both train and test data sets. Simple model will be selected on further analysis.
 
+Lets compare the Simple model to the "really simple" additive model that we originally started out with.
+
+```{r}
+
+# Create a model based on the training dataset with the predictors chosen via backward AIC
+fit_add = lm(life_expectancy ~ status + adult_mortality + hepatitis + BMI + under_5_deaths + total_exp + diphtheria + population + thinness_1_19 + HBI + schooling + log_percent_exp + log_hiv_aids + log_GDP, data = data_trn)
+
+
+trn_rmse_add = rmse(fit_add, data_trn)
+tst_rmse_add = rmse(fit_add, data_tst)
+
+kable(data.frame(model = c("Simple", "Additive"),
+                 "Train RMSE" = c(trn_rmse_simple, trn_rmse_add),
+                 "Test RMSE" = c(tst_rmse_simple, tst_rmse_add)))   
+```
+
+Interestingly, the additive model has lower train RMSE than the simple interaction model.
+However, the test RMSE is way lower for the simple interaction model and thus we continue to prefer the simple interaction model.
+
+
 ## Colinearity Analysis
 #### @Jonathon
 
 ## Model Diagnostics
 #### @Jaccob
 
+```{r}
+shapiro.test(resid(fit_small))
+qqnorm(resid(fit_small), col = "darkgrey")
+qqline(resid(fit_small), col = "dodgerblue", lwd = 2)
+
+
+shapiro.test(resid(fit_add_selected))
+qqnorm(resid(fit_add_selected), col = "darkgrey")
+qqline(resid(fit_add_selected), col = "dodgerblue", lwd = 2)
+```
+
+
 ## Outlier Diagnostics
 #### @Fahad
 
+The Q-Q plot definitely makes it seem that the normality assumptions is violated.
+Lets try to remove outliers and see if we can improve the normality of the residuals.
+
+To check for outlier data points having an outside influence on our model, we will check the cooks distance of the data in our dataset.
+
+```{r}
+# calculating cooks distance for all the data points for the selected simple model that was trained on all the data
+small_int_mod_cd = cooks.distance(fit_small)
+sum(small_int_mod_cd > 4/ length(small_int_mod_cd))
+
+# calculating cooks distance for all the data points for the selected additive model that was trained on all the data
+add_mod_cd = cooks.distance(fit_add_selected)
+sum(add_mod_cd > 4/ length(add_mod_cd))
+```
+
+There are 121 outliers that are having a high influence on our interaction model and 125 data points that are having a high influence on our additive model.
+
+Lets remove these and run the diagnostics again.
+
+```{r}
+fit_small_int_fix = lm(life_expectancy ~ adult_mortality + Measles + BMI + polio + total_exp + population + thinness_1_19 + HBI + log_hiv_aids + status:adult_mortality + status:hepatitis + status:total_exp + status:thinness_1_19 + status:HBI + status:schooling + adult_mortality:BMI + adult_mortality:schooling + adult_mortality:log_hiv_aids + adult_mortality:log_GDP + alcohol:hepatitis + alcohol:Measles + alcohol:log_percent_exp + alcohol:log_hiv_aids + hepatitis:total_exp + hepatitis:log_percent_exp + BMI:population + BMI:thinness_1_19 + BMI:schooling + under_5_deaths:polio + under_5_deaths:HBI + under_5_deaths:schooling + polio:HBI + total_exp:thinness_1_19 + total_exp:HBI + diphtheria:HBI + diphtheria:schooling + thinness_1_19:HBI + thinness_1_19:schooling + thinness_1_19:log_hiv_aids + HBI:schooling + HBI:log_hiv_aids + schooling:log_percent_exp + schooling:log_GDP + log_percent_exp:log_GDP,
+               data = data_cleaned,
+               subset = small_int_mod_cd < 4/ length(small_int_mod_cd))
+
+fit_add_fix = lm(life_expectancy ~ status + adult_mortality + hepatitis + BMI + under_5_deaths + total_exp + diphtheria + population + thinness_1_19 + HBI + schooling + log_percent_exp + log_hiv_aids + log_GDP,
+               data = data_cleaned,
+               subset = add_mod_cd < 4/ length(add_mod_cd))
 
 
+shapiro.test(resid(fit_small_int_fix))
+qqnorm(resid(fit_small_int_fix), col = "darkgrey")
+qqline(resid(fit_small_int_fix), col = "dodgerblue", lwd = 2)
+
+
+shapiro.test(resid(fit_add_fix))
+qqnorm(resid(fit_add_fix), col = "darkgrey")
+qqline(resid(fit_add_fix), col = "dodgerblue", lwd = 2)
+```
+
+We managed to improve the normality of the residuals for the interactive model (the Q-Q plot looks much better) however the normality of the residuals of the additive model was not improved.
+
+Thus we still continue to prefer the interaction model even though the Shapiro-Wilk test continues to reject for all reasonable alphas.
 
 
 
