@@ -10,23 +10,26 @@ urlcolor: cyan
 editor_options: 
   markdown: 
     wrap: 72
+  chunk_output_type: inline
 ---
 
 # Introduction
 
 This project will research factors that might predict life expectancy
-across multiple regions globally. It is generally accepted that developed
-countries have lower mortality and higher lifespan than their less-developed peers.
-But how true is this assumption? And if these countries do indeed have lower mortality,
-which factors are most responsible?
+across multiple regions globally. It is generally accepted that
+developed countries have lower mortality and higher lifespan than their
+less-developed peers. But how true is this assumption? And if these
+countries do indeed have lower mortality, which factors are most
+responsible?
 
 Developed countries tend to have more resources, better nutrition
 standards and access to advanced medical infrastructure, all of which
-facilitate longevity. On the other hand, these countries may be more
-likely to suffer from higher rates of obesity or alcoholism, which can
-counteract those benefits. Moreover, the complex economies upon which
-these countries' development is predicated may result in more stressful
-lifestyles for their inhabitants, further harming mortality.
+facilitate longevity. However, it shouldn't be assumed that all aspects
+of development are positive. Many developed countries are more likely to
+suffer from higher rates of obesity or alcoholism, counteracting their
+advantages in nutrition and medicine. Moreover, the complex economies of
+developed countries may result in more stressful lifestyles, further
+harming mortality.
 
 Buddhist monks live in Nepal don't spend their sleeping time on swiping
 phones, breath car exhaust, or eat packaged food full of chemicals. It's
@@ -72,38 +75,39 @@ kable(predictors)
 
 ## Column definitions
 
-| Name | Definition |
-|----|----|
-| country | country |
-| year | year |
-| status | Developed or Developing |
-| life expectancy | life expectancy in age |
-| adult mortality | Adult Mortality Rates of both sexes (probability of dying between 15 and 60 years per 1000 population) |
-| infant deaths | Number of Infant Deaths per 1000 population |
-| alcohol | Alcohol, recorded per capita (15+) consumption (in litres of pure alcohol) |
-| percentage expenditure | Expenditure on health as a percentage of Gross Domestic Product per capita (%) |
-| Hepatitis B | Hepatitis B (HepB) immunization coverage among 1-year-olds (%) |
-| Measles | Measles - number of reported cases per 1000 population |
-| BMI | Average Body Mass Index of entire population |
-| under-five deaths | Number of under-five deaths per 1000 population |
-| Polio | Polio (Pol3) immunization coverage among 1-year-old (%) |
-| total expenditure | General government expenditure on health as a percentage of total government expenditure (%) |
-| Diphtheria | Diphtheria tetanus toxoid and pertussis (DTP3) immunization coverage among 1-year-olds (%) |
-| HIV/AIDS | Deaths per 1 000 live births HIV/AIDS (0-4 years) |
-| GDP | Gross Domestic Product per capita (in USD) |
-| Population | Population of the country |
-| thinness 1-19 years | Prevalence of thinness among children and adolescents for Age 10 to 19 (% ) |
-| thinness 5-9 years | Prevalence of thinness among children for Age 5 to 9(%) |
-| income composition | Human Development Index in terms of income composition of resources (index ranging from 0 to 1) |
-| schooling | Number of years of Schooling(years) |
+| Name                   | Definition                                                                                             |
+|-----------------|-------------------------------------------------------|
+| country                | country                                                                                                |
+| year                   | year                                                                                                   |
+| status                 | Developed or Developing                                                                                |
+| life expectancy        | life expectancy in age                                                                                 |
+| adult mortality        | Adult Mortality Rates of both sexes (probability of dying between 15 and 60 years per 1000 population) |
+| infant deaths          | Number of Infant Deaths per 1000 population                                                            |
+| alcohol                | Alcohol, recorded per capita (15+) consumption (in litres of pure alcohol)                             |
+| percentage expenditure | Expenditure on health as a percentage of Gross Domestic Product per capita (%)                         |
+| Hepatitis B            | Hepatitis B (HepB) immunization coverage among 1-year-olds (%)                                         |
+| Measles                | Measles - number of reported cases per 1000 population                                                 |
+| BMI                    | Average Body Mass Index of entire population                                                           |
+| under-five deaths      | Number of under-five deaths per 1000 population                                                        |
+| Polio                  | Polio (Pol3) immunization coverage among 1-year-old (%)                                                |
+| total expenditure      | General government expenditure on health as a percentage of total government expenditure (%)           |
+| Diphtheria             | Diphtheria tetanus toxoid and pertussis (DTP3) immunization coverage among 1-year-olds (%)             |
+| HIV/AIDS               | Deaths per 1 000 live births HIV/AIDS (0-4 years)                                                      |
+| GDP                    | Gross Domestic Product per capita (in USD)                                                             |
+| Population             | Population of the country                                                                              |
+| thinness 1-19 years    | Prevalence of thinness among children and adolescents for Age 10 to 19 (% )                            |
+| thinness 5-9 years     | Prevalence of thinness among children for Age 5 to 9(%)                                                |
+| income composition     | Human Development Index in terms of income composition of resources (index ranging from 0 to 1)        |
+| schooling              | Number of years of Schooling(years)                                                                    |
 
 # Methods
+
 ## Data Cleaning
-Original variable names are not r-friendly. We will rename them to follow snake case for easy access on further analysis.
-- rename variables
-- convert category variables to factors
-- filter records based on column values
-- omit NA values
+
+Original variable names are not r-friendly. We will rename them to
+follow snake case for easy access on further analysis. - rename
+variables - convert category variables to factors - filter records based
+on column values - omit NA values
 
 ```{r}
 names(data)[names(data) == "Country"] = "country"
@@ -138,38 +142,123 @@ data = na.omit(data)
 ```
 
 ## Identify Potential Transformations and Collinearity
-Plot a matrix of scatterplots to check shapes of curves for
-- `life_expectancy vs numeric predictors`
-- $Predictor_x$ vs $Predictor_y$
+
+For this analysis we intend to perform linear regression with multiple
+predictors. However, we need to verify that our predictors are
+independent, which is a core assumption of the linear regression model.
+If multiple predictors in our model are correlated, it will hamper our
+ability to determine the impact of each predictor on the response
+variable, since any change to the collinear predictors will exert an
+outsized influence on the response variable. Colliwnear variables will
+also increase error and reduce the predictive power of the model.
+
+First, we can assess the data visually by creating a matrix of
+scatterplots to check the shapes of curves for -
+`life_expectancy vs numeric predictors` - $Predictor_x$ vs $Predictor_y$
+. Using the pairs function, we can plot all possible scatterplots
+between pairs of response and predictor variables in the dataset.
 
 ```{r}
 data_numeric_only = subset(data, select = -c(country, year, status))
 pairs(data_numeric_only)
 ```
 
-From above matrix of scatterplots, we can observe
-- collinearity
-  - `infant_death` and `under_5_death`
-  - `thinness_5_9` and `thinness_1_19`
-- predictors with non-linear shape of curve against life expectancy
-  - `percent_exp`
-  - `hiv_aids`
-  - `GDP`
+From above matrix of scatterplots, we can observe - collinearity -
+`infant_death` and `under_5_death` - `thinness_5_9` and
+`thinness_1_19` - predictors with non-linear shape of curve against life
+expectancy - `percent_exp` - `hiv_aids` - `GDP`
 
-Take logarithm for predictors with non-linear shape of curve
+Additionally, we can employ a numerical methodology to further check for
+collinearity. We can do this by using the cor() function to check for
+all pairwise correlations between numerical variables in the dataset.
 
 ```{r}
+var_cors = round(cor(data_numeric_only), 2)
+var_cors
+```
+
+This analysis can be further refined to identify the variable pairs with
+the highest correlations. This will enable us to detect significant
+collinearities with the potential to undermine our model.
+
+```{r}
+var_cors_df = as.data.frame(as.table(var_cors))
+var_cors_df_ordered = var_cors_df[order(var_cors_df$Freq, decreasing = TRUE), ]
+var_cors_df_ordered = subset(var_cors_df_ordered, var_cors_df_ordered$Var1 != var_cors_df_ordered$Var2)
+var_cors_df_ordered = subset(var_cors_df_ordered, (var_cors_df_ordered$Var1 != "life_expectancy" & var_cors_df_ordered$Var2 != "life_expectancy"))
+colnames(var_cors_df_ordered) = c("response1", "response2", "cor")
+var_cors_df_ordered
+```
+
+From the above, it is evident that many of the predictor pairs in our
+model exhibit significant colinearity. This is a result of many
+variables in the dataset having some level of overlap – such as under 5
+deaths and infant deaths. We will avoid using these concurrently in the
+model.
+
+Next, we can search for evidence of collinearity by examining some of
+the coefficient parameters of the complete additive model.
+
+```{r}
+
+#citation for paste(): https://stackoverflow.com/questions/58349721/how-do-i-use-paste-and-as-formula-to-generate-a-complex-formula
+
+full_model = lm(life_expectancy ~ ., data = data)
+summary(full_model)$r.squared
+
+predictors = names(data)
+num_predictors = length(predictors)
+results = rep(0, num_predictors)
+for (i in 1:num_predictors) {
+  predictor = predictors[i]
+  temp_analysis_model = as.formula(paste("life_expectancy ~ . -", predictor))
+  temp_analysis_model = lm(temp_analysis_model, data = data)                      
+  r_squared = summary(temp_analysis_model)$r.squared
+  results[i] = r_squared
+}
+results_df = data.frame(
+  var = predictors,
+  result = results
+)
+```
+
+```{r}
+results_df = results_df[order(results_df$result, decreasing = TRUE),]
+results_df
+```
+
+Finally, we can calculate VIF (variance inflation factor) for each
+parameter of the model. VIF is a useful measure for assesing
+collinearity because it attempts to isolate the impact of collinearity
+on model variance. VIF greater than 5 generally indicates the presence
+of collinearity
+
+```{r}
+library(car)
+fit_add_orign = lm(life_expectancy ~ ., data = subset(data, select = -c(country, year)))
+vif_reuslts_table = data.frame(as.table(vif(fit_add_orign)))
+colnames(vif_reuslts_table) = c("predictor", "VIF")
+vif_reuslts_table
+```
+
+We want to mitigate the impact of collinearity on our model so they
+don't impact our results. To do this, we first perform a logarithmic
+adjustment for those predictors with non-linear curves.
+
+```{r}
+{r}
 data_transformed = data.frame(data)
 data_transformed["log_percent_exp"] = log(data_transformed$percent_exp)
 data_transformed["log_hiv_aids"] = log(data_transformed$hiv_aids)
 data_transformed["log_GDP"] = log(data_transformed$GDP)
 ```
 
-Remove linearly correlated column and two category columns `country` and `year`.
-- remove `thinness_5_9` and `infant_death` because they are subsets to `thiness_1_19` and `under_5_deaths` respectively
-- remove `year` to get rid of time series characteristic
-- remove `country` to mitigate geographic influence
-- omit NA values
+Next, we will need to prune our model to remove predictors with high
+collinearity. We remove linearly correlated columns and two category
+columns - `country` and `year`. remove `thinness_5_9` and `infant_death`
+because they are subsets to `thiness_1_19` and `under_5_deaths`
+respectively - remove `year` to get rid of time series characteristic -
+remove `country` to mitigate geographic influence - omit NA values
 
 ```{r}
 data_cleaned = subset(data_transformed, select = -c(country, year, percent_exp, hiv_aids, GDP, thinness_5_9, infant_deaths))
@@ -177,6 +266,7 @@ data_cleaned = na.omit(data_cleaned)
 ```
 
 ## Model Selection
+
 ### compare additive models with predictors and transformed predictors
 
 ```{r}
@@ -185,7 +275,10 @@ summary(fit_add_orign)
 fit_add_trans = lm(life_expectancy ~ ., data = data_cleaned)
 summary(fit_add_trans)
 ```
-Both models are significant under 0.01 significant level, and the one with transformed data has higher `r-squared` value. Further optimization will be based the data set `data_cleaned`.
+
+Both models are significant under 0.01 significant level, and the one
+with transformed data has higher `r-squared` value. Further optimization
+will be based the data set `data_cleaned`.
 
 ### perform a regression with level 2 interaction
 
@@ -198,7 +291,10 @@ fit_int = lm(life_expectancy ~ .^2, data = data_cleaned)
 ```{r}
 anova(fit_add_trans, fit_int)
 ```
-`p-value` is small enough to reject the hypothesis that interactive predictors were in-significant, hence interactive model `fit_int` is preferred over the additive one.
+
+`p-value` is small enough to reject the hypothesis that interactive
+predictors were in-significant, hence interactive model `fit_int` is
+preferred over the additive one.
 
 ### backward step-wise selection with AIC
 
@@ -207,8 +303,9 @@ fit_selected = step(fit_int, direction = "backward", trace = 0)
 summary(fit_selected)
 ```
 
-Noticed that not all selected predictors are significant with a high significance level such as 99%.
-Try to fit a simple model which excludes predictors with `p-value > 0.01`
+Noticed that not all selected predictors are significant with a high
+significance level such as 99%. Try to fit a simple model which excludes
+predictors with `p-value > 0.01`
 
 ```{r}
 df_coef = data.frame(summary(fit_selected)$coefficients)
@@ -219,7 +316,8 @@ fit_small = lm(life_expectancy ~ adult_mortality + Measles + BMI + polio + total
 anova(fit_small, fit_selected)
 ```
 
-`fit_selected` is preferred over the smaller model on anova analysis, but how about the Test-Train Split?
+`fit_selected` is preferred over the smaller model on anova analysis,
+but how about the Test-Train Split?
 
 ```{r, warning=FALSE}
 set.seed(233)
@@ -286,48 +384,5 @@ kable(data.frame(model = c("Simple", "Complex"),
                  "Test RMSE" = c(tst_rmse_simple, tst_rmse_complex)))
 ```
 
-The simple model has lower RMSE on both train and test data sets. Simple model will be selected on further analysis.
-
-## Colinearity Analysis
-#### @Jonathon
-
-## Model Diagnostics
-#### @Jaccob
-
-## Outlier Diagnostics
-#### @Fahad
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+The simple model has lower RMSE on both train and test data sets. Simple
+model will be selected on further analysis.
