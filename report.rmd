@@ -386,3 +386,122 @@ kable(data.frame(model = c("Simple", "Complex"),
 
 The simple model has lower RMSE on both train and test data sets. Simple
 model will be selected on further analysis.
+
+## Model Diagnostics
+#### @Jaccob
+
+
+## Setup
+{r, include=FALSE}
+# Set default CRAN mirror and install required packages
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+required_packages <- c("tseries", "lmtest", "car", "glmnet", "caret")
+new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
+if (length(new_packages)) install.packages(new_packages, dependencies = TRUE)
+
+
+## Residuals Analysis
+{r, echo=FALSE}
+# Residual Plots for Complex Model
+par(mfrow = c(2, 2))
+plot(fit_complex)
+
+
+### Analysis & Conclusion
+- **Residuals vs Fitted:** Residuals are scattered somewhat randomly, supporting linearity, though deviations exist that warrant further investigation.
+- **Q-Q Plot:** Residuals follow the theoretical quantile line with mild deviations in the tails, suggesting approximate normality with possible outliers.
+- **Scale-Location Plot:** The spread of residuals appears consistent, though slight fanning at higher fitted values indicates mild heteroscedasticity.
+- **Residuals vs Leverage:** Points with high leverage are visible, with one exceeding Cook's distance. These points require further evaluation.
+
+---
+
+## Additional Diagnostic Plots
+
+### Cook's Distance Plot
+{r, echo=FALSE}
+# Cook's Distance Plot
+cooksD <- cooks.distance(fit_complex)
+plot(cooksD, main="Cook's Distance", ylab="Cook's Distance")
+abline(h = 4/(nrow(model.matrix(fit_complex))), col="red")
+
+
+#### Analysis & Conclusion
+- **Cook's Distance:** Points above the red line are highly influential and may skew regression results. Investigate these points further to determine if they are outliers or valid influential points. Consider removal or adjustment if they negatively affect the model.
+
+---
+
+## Statistical Tests Summary
+{r, include=FALSE}
+# Statistical Tests
+library(lmtest)
+bp_complex <- bptest(fit_complex)
+shapiro_complex <- shapiro.test(resid(fit_complex))
+dw_complex <- dwtest(fit_complex)
+
+
+| Test                  | Statistic | p-value         | Conclusion               |
+|----------------------|------------|----------------|---------------------------|
+| Breusch-Pagan        | r round(bp_complex$statistic, 2)  | r format(bp_complex$p.value, scientific=TRUE) | Heteroscedasticity: Present if p < 0.05 |
+| Shapiro-Wilk         | r round(shapiro_complex$statistic, 2) | r format(shapiro_complex$p.value, scientific=TRUE) | Normality: Violated if p < 0.05 |
+| Durbin-Watson        | r round(dw_complex$statistic, 2) | r format(dw_complex$p.value, scientific=TRUE) | Autocorrelation: Not Present if p > 0.05 |
+
+### Analysis & Conclusion
+- **Breusch-Pagan Test:** Confirms heteroscedasticity if p < 0.05. Apply transformations or robust standard errors.
+- **Shapiro-Wilk Test:** Significant p-values suggest non-normality;
+- **Durbin-Watson Test:** No evidence of autocorrelation; residuals appear independent.
+
+---
+
+## Multicollinearity Check
+{r, include=FALSE}
+# VIF Analysis
+library(car)
+vif_complex <- vif(fit_complex)
+
+
+| Variable              | VIF Value |
+|----------------------|------------|
+r paste0("| ", rownames(vif_complex), " | ", round(vif_complex, 2), " |")
+
+### Analysis & Conclusion
+- **Observation:** High VIF values indicate severe multicollinearity.
+- **Action:** Consider reducing multicollinearity by removing or transforming variables, using Ridge/Lasso regression, or applying PCA.
+
+---
+
+## Model Evaluation Metrics
+{r, include=FALSE}
+# Model Performance Metrics
+adj_r2_complex <- summary(fit_complex)$adj.r.squared
+aic_complex <- AIC(fit_complex)
+bic_complex <- BIC(fit_complex)
+
+
+| Metric              | Complex Model |
+|---------------------|----------------|
+| Adjusted R-squared | r round(adj_r2_complex, 4) |
+| AIC                | r round(aic_complex, 2)    |
+| BIC                | r round(bic_complex, 2)    |
+
+### Analysis & Conclusion
+- **Adjusted R-squared:** Indicates the model’s explanatory power after adjusting for predictors.
+- **AIC/BIC:** Lower values suggest a better model fit. Consider reevaluating the model after addressing issues.
+
+## Comprehensive Conclusion
+Based on the comprehensive diagnostic evaluation of the model, several critical insights were identified:
+
+1. **Model Fit and Linearity:**
+   - The model shows an approximately linear relationship, supported by the residual plots and the Residuals vs Fitted plot. However, deviations in residual patterns and influential points suggest possible specification errors.
+
+2. **Influential Points:**
+   - Cook's Distance analysis indicates several highly influential points that exceed the recommended threshold. Further examination and potential adjustments are necessary to improve model robustness.
+
+3. **Assumption Violations:**
+   - The Breusch-Pagan test revealed heteroscedasticity, while the Shapiro-Wilk test showed violations of normality. These results suggest a need for variable transformations or robust estimation techniques.
+
+4. **Multicollinearity:**
+   - High VIF values point to severe multicollinearity, reducing coefficient reliability. Consider removing or combining highly correlated variables, or applying regularization techniques.
+
+5. **Overall Model Performance:**
+   - Despite the identified issues, the Adjusted R-squared value and relatively low AIC/BIC values suggest that the model has reasonable explanatory power but could be improved by addressing the diagnostics above.
