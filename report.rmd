@@ -10,7 +10,6 @@ urlcolor: cyan
 editor_options: 
   markdown: 
     wrap: 72
-  chunk_output_type: inline
 ---
 
 # Introduction
@@ -36,6 +35,17 @@ phones, breath car exhaust, or eat packaged food full of chemicals. It's
 true Nepal's GDP is far behind US, but do US residents live longer than
 Nepal people necessarily? Hopefully data analysis with this data set can
 shed some light.
+
+## Setup
+
+```{r}
+# Set default CRAN mirror and install required packages
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+required_packages <- c("tseries", "lmtest", "car", "glmnet", "caret", "readr", "knitr")
+new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
+if (length(new_packages)) install.packages(new_packages, dependencies = TRUE)
+```
 
 ## Description of the data set
 
@@ -64,19 +74,11 @@ head(data)
 
 There are 22 columns and 2938 records in the CSV file. `Life expectancy`
 will be used as the response variable, and the rest are predictor
-candidates. The table below lists out some important ones,
+candidates.
 
-```{r}
-library(knitr)
-predictors = data.frame(names = c("country", "status", "adult mortality", "infant deaths", "Alcohol", "BMI", "GDP", "Population", "Schooling"),
-                        types = c("categorical", "dummy", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"))
-kable(predictors)
-```
-
-## Column definitions
 
 | Name                   | Definition                                                                                             |
-|-----------------|-------------------------------------------------------|
+|---------------------|---------------------------------------------------|
 | country                | country                                                                                                |
 | year                   | year                                                                                                   |
 | status                 | Developed or Developing                                                                                |
@@ -105,9 +107,12 @@ kable(predictors)
 ## Data Cleaning
 
 Original variable names are not r-friendly. We will rename them to
-follow snake case for easy access on further analysis. - rename
-variables - convert category variables to factors - filter records based
-on column values - omit NA values
+follow snake case for easy access on further analysis.
+
+-   rename variables
+-   convert category variables to factors
+-   filter records based on column values
+-   omit NA values
 
 ```{r}
 names(data)[names(data) == "Country"] = "country"
@@ -146,27 +151,51 @@ data = na.omit(data)
 For this analysis we intend to perform linear regression with multiple
 predictors. However, we need to verify that our predictors are
 independent, which is a core assumption of the linear regression model.
-If multiple predictors in our model are correlated, it will hamper our
+If multiple predictors in our model are correlated, it will harm our
 ability to determine the impact of each predictor on the response
 variable, since any change to the collinear predictors will exert an
-outsized influence on the response variable. Colliwnear variables will
+outsized influence on the response variable. Collinear variables will
 also increase error and reduce the predictive power of the model.
 
 First, we can assess the data visually by creating a matrix of
-scatterplots to check the shapes of curves for -
-`life_expectancy vs numeric predictors` - $Predictor_x$ vs $Predictor_y$
-. Using the pairs function, we can plot all possible scatterplots
-between pairs of response and predictor variables in the dataset.
+scatterplots to check the shapes of curves for
+
+-   `life_expectancy vs numeric predictors`
+
+-   $Predictor_x$ vs $Predictor_y$
+
+Using the pairs function, we can plot all possible scatterplots between
+pairs of response and predictor variables in the dataset.
 
 ```{r}
 data_numeric_only = subset(data, select = -c(country, year, status))
 pairs(data_numeric_only)
 ```
 
-From above matrix of scatterplots, we can observe - collinearity -
-`infant_death` and `under_5_death` - `thinness_5_9` and
-`thinness_1_19` - predictors with non-linear shape of curve against life
-expectancy - `percent_exp` - `hiv_aids` - `GDP`
+From above matrix of scatterplots, we can observe
+
+-   collinearity
+
+    -   `infant_death` and `under_5_death`
+
+    -   `thinness_5_9` and `thinness_1_19`
+
+-   predictors with non-linear shape of curve against life expectancy
+
+    -   `percent_exp`
+
+    -   `hiv_aids`
+
+    -   `GDP`
+
+Take logarithm for predictors with non-linear shape of curve
+
+```{r}
+data_transformed = data.frame(data)
+data_transformed["log_percent_exp"] = log(data_transformed$percent_exp)
+data_transformed["log_hiv_aids"] = log(data_transformed$hiv_aids)
+data_transformed["log_GDP"] = log(data_transformed$GDP)
+```
 
 Additionally, we can employ a numerical methodology to further check for
 collinearity. We can do this by using the cor() function to check for
@@ -191,21 +220,14 @@ var_cors_df_ordered
 ```
 
 From the above, it is evident that many of the predictor pairs in our
-model exhibit significant colinearity. This is a result of many
-variables in the dataset having some level of overlap – such as under 5
-deaths and infant deaths. We will avoid using these concurrently in the
-model.
+model exhibit collinearity. This is a result of many variables in the
+dataset having some level of overlap -- such as under 5 deaths and
+infant deaths. We will avoid using these concurrently in the model.
 
 Next, we can search for evidence of collinearity by examining some of
 the coefficient parameters of the complete additive model.
 
 ```{r}
-
-#citation for paste(): https://stackoverflow.com/questions/58349721/how-do-i-use-paste-and-as-formula-to-generate-a-complex-formula
-
-full_model = lm(life_expectancy ~ ., data = data)
-summary(full_model)$r.squared
-
 predictors = names(data)
 num_predictors = length(predictors)
 results = rep(0, num_predictors)
@@ -220,9 +242,6 @@ results_df = data.frame(
   var = predictors,
   result = results
 )
-```
-
-```{r}
 results_df = results_df[order(results_df$result, decreasing = TRUE),]
 results_df
 ```
@@ -241,24 +260,14 @@ colnames(vif_reuslts_table) = c("predictor", "VIF")
 vif_reuslts_table
 ```
 
-We want to mitigate the impact of collinearity on our model so they
-don't impact our results. To do this, we first perform a logarithmic
-adjustment for those predictors with non-linear curves.
-
-```{r}
-{r}
-data_transformed = data.frame(data)
-data_transformed["log_percent_exp"] = log(data_transformed$percent_exp)
-data_transformed["log_hiv_aids"] = log(data_transformed$hiv_aids)
-data_transformed["log_GDP"] = log(data_transformed$GDP)
-```
-
-Next, we will need to prune our model to remove predictors with high
-collinearity. We remove linearly correlated columns and two category
-columns - `country` and `year`. remove `thinness_5_9` and `infant_death`
-because they are subsets to `thiness_1_19` and `under_5_deaths`
-respectively - remove `year` to get rid of time series characteristic -
-remove `country` to mitigate geographic influence - omit NA values
+We want to mitigate the impact of collinearity on our model by removing
+linearly correlated columns `thinness_5_9` and `infant_death` because
+they are subsets to `thiness_1_19` and `under_5_deaths` respectively.
+`GDP` and `percent_exp` also have VIF greater than 5, but there isn't a
+clear subset relationship between them. We will keep them in data set
+and rely on step wise variable selection to decide which to pick. Two
+category columns `country` and `year` are removed also to get rid of
+time series characteristic and mitigate geographic influence.
 
 ```{r}
 data_cleaned = subset(data_transformed, select = -c(country, year, percent_exp, hiv_aids, GDP, thinness_5_9, infant_deaths))
@@ -296,7 +305,7 @@ anova(fit_add_trans, fit_int)
 predictors were in-significant, hence interactive model `fit_int` is
 preferred over the additive one.
 
-### backward step-wise selection with AIC
+### backward step-wise selection with AIC on interactive model
 
 ```{r}
 fit_selected = step(fit_int, direction = "backward", trace = 0)
@@ -384,5 +393,218 @@ kable(data.frame(model = c("Simple", "Complex"),
                  "Test RMSE" = c(tst_rmse_simple, tst_rmse_complex)))
 ```
 
-The simple model has lower RMSE on both train and test data sets. Simple
-model will be selected on further analysis.
+The simple model has lower RMSE on both train and test data sets.
+
+Lets compare the Simple model to the "really simple" additive model that
+we originally started out with.
+
+```{r, warning=FALSE}
+
+# Create a model based on the training dataset with the predictors chosen via backward AIC
+fit_add = lm(life_expectancy ~ status + adult_mortality + hepatitis + BMI + under_5_deaths + total_exp + diphtheria + population + thinness_1_19 + HBI + schooling + log_percent_exp + log_hiv_aids + log_GDP, data = data_trn)
+fit_add_selected = step(fit_add_trans, direction = "backward", trace = 0)
+
+trn_rmse_add = rmse(fit_add_selected, data_trn)
+tst_rmse_add = rmse(fit_add_selected, data_tst)
+
+kable(data.frame(model = c("Simple", "Additive"),
+                 "Train RMSE" = c(trn_rmse_simple, trn_rmse_add),
+                 "Test RMSE" = c(tst_rmse_simple, tst_rmse_add)))   
+```
+
+Interestingly, the additive model has lower train RMSE than the simple
+interaction model. However, the test RMSE is way lower for the simple
+interaction model and thus we continue to prefer the simple interaction
+model.
+
+Re-fit the model on the entire data set `data_cleaned`
+
+```{r}
+fit_simple = lm(life_expectancy ~ adult_mortality + Measles + BMI + polio + total_exp + 
+    population + thinness_1_19 + HBI + log_hiv_aids + status:adult_mortality + 
+    status:hepatitis + status:total_exp + status:thinness_1_19 + 
+    status:HBI + status:schooling + adult_mortality:BMI + adult_mortality:schooling + 
+    adult_mortality:log_hiv_aids + adult_mortality:log_GDP + 
+    alcohol:hepatitis + alcohol:Measles + alcohol:log_percent_exp + 
+    alcohol:log_hiv_aids + hepatitis:total_exp + hepatitis:log_percent_exp + 
+    BMI:population + BMI:thinness_1_19 + BMI:schooling + under_5_deaths:polio + 
+    under_5_deaths:HBI + under_5_deaths:schooling + polio:HBI + 
+    total_exp:thinness_1_19 + total_exp:HBI + diphtheria:HBI + 
+    diphtheria:schooling + thinness_1_19:HBI + thinness_1_19:schooling + 
+    thinness_1_19:log_hiv_aids + HBI:schooling + HBI:log_hiv_aids + 
+    schooling:log_percent_exp + schooling:log_GDP + log_percent_exp:log_GDP,
+    data = data_cleaned)
+```
+
+## Model Diagnostics
+
+### Statistical Tests
+
+```{r}
+# Statistical Tests
+library(lmtest)
+bp_simple <- bptest(fit_simple)
+shapiro_simple <- shapiro.test(resid(fit_simple))
+```
+
+| Test          | Statistic                              | p-value                                             | Conclusion                               |
+|------------------|-------------------|------------------|------------------|
+| Breusch-Pagan | `r round(bp_simple$statistic, 2)`      | `r format(bp_simple$p.value, scientific=TRUE)`      | Heteroscedasticity: Present if p \< 0.05 |
+| Shapiro-Wilk  | `r round(shapiro_simple$statistic, 2)` | `r format(shapiro_simple$p.value, scientific=TRUE)` | Normality: Violated if p \< 0.05         |
+
+-   **Breusch-Pagan Test:** Small `p-value` confirms heteroscedasticity.
+-   **Shapiro-Wilk Test:** Significant p-values suggest non-normality.
+
+### Visualize residuals of the selected model
+
+#### Plot the histogram of residuals
+
+```{r}
+hist(resid(fit_simple),
+     xlab = "Residuals",
+     main = "Histogram of Residuals, fit_simple",
+     col = "darkorange",
+     border = "dodgerblue",
+     breaks = 20)
+```
+
+The histogram appears reasonably normal counter intuitively. Residuals
+seem to distribute evenly around $\mu = 0$.
+
+#### Plot the Q-Q plot
+
+```{r}
+qqnorm(resid(fit_simple),
+       main = "Normal Q-Q Plot, fit_simple",
+       col = "darkgrey")
+qqline(resid(fit_simple), col = "dodgerblue", lwd = 2)
+```
+
+Q-Q plot shows residuals derivate from normal distribution when
+magnitude of quantile is beyond 1.5.
+
+Normally standardized residuals greater than 2 in magnitude should only
+happen approximately 5 percent of the time, while 41% of `fit_simple`
+standardized residuals are greater than 2.
+
+```{r}
+mean(rstandard(fit_simple)[abs(rstandard(fit_simple)) > 2])
+```
+
+## Outlier Diagnostics
+
+The Q-Q plot definitely makes it seem that the normality assumptions is
+violated. Lets try to remove outliers and see if we can improve the
+normality of the residuals.
+
+To check for outlier data points having an outside influence on our
+model, we will check the cooks distance of the data in our dataset.
+
+```{r}
+# calculating cooks distance for all the data points for the selected simple model that was trained on all the data
+simple_int_mod_cd = cooks.distance(fit_simple)
+sum(simple_int_mod_cd > 4/length(simple_int_mod_cd))
+```
+
+There are 121 outliers that are having a high influence on our model.
+
+Lets remove these and run the diagnostics again.
+
+```{r}
+fit_simple_fix = lm(life_expectancy ~ adult_mortality + Measles + BMI + polio + total_exp + 
+    population + thinness_1_19 + HBI + log_hiv_aids + status:adult_mortality + 
+    status:hepatitis + status:total_exp + status:thinness_1_19 + 
+    status:HBI + status:schooling + adult_mortality:BMI + adult_mortality:schooling + 
+    adult_mortality:log_hiv_aids + adult_mortality:log_GDP + 
+    alcohol:hepatitis + alcohol:Measles + alcohol:log_percent_exp + 
+    alcohol:log_hiv_aids + hepatitis:total_exp + hepatitis:log_percent_exp + 
+    BMI:population + BMI:thinness_1_19 + BMI:schooling + under_5_deaths:polio + 
+    under_5_deaths:HBI + under_5_deaths:schooling + polio:HBI + 
+    total_exp:thinness_1_19 + total_exp:HBI + diphtheria:HBI + 
+    diphtheria:schooling + thinness_1_19:HBI + thinness_1_19:schooling + 
+    thinness_1_19:log_hiv_aids + HBI:schooling + HBI:log_hiv_aids + 
+    schooling:log_percent_exp + schooling:log_GDP + log_percent_exp:log_GDP,
+    data = data_cleaned,
+    subset = simple_int_mod_cd < 4 / length(simple_int_mod_cd))
+
+shapiro.test(resid(fit_simple_fix))
+```
+
+```{r}
+qqnorm(resid(fit_simple_fix), col = "darkgrey")
+qqline(resid(fit_simple_fix), col = "dodgerblue", lwd = 2)
+```
+
+We managed to improve the normality of the residuals for the interactive
+model. The Q-Q plot looks much better, and the percentage of
+standardized residuals beyond 2 is decreased from 41% to 17%.
+
+```{r}
+mean(rstandard(fit_simple)[abs(rstandard(fit_simple_fix)) > 2])
+```
+
+# Results
+
+We started from additive and interactive model with all numeric
+predictors and one dummy variable `status`, then performed step-wise
+variable selection, trimmed variables with their `p-value`, and compared
+models with `r-squared` and RMSE based on train/test data, and finally
+polished the model given issues spotted from model diagnostics. The
+selected model has a r squared of 0.92 which is fairly close to 1.
+
+```{r}
+summary(fit_simple_fix)$r.squared
+```
+
+Based on the selected model, significant factors impact life expectancy
+are
+
+```{r}
+summary(fit_simple_fix)$coefficients
+```
+
+# Discussion
+
+Among above influential factors some are directly related to the
+economic status of a country such as `log_GDP` and `HBI`, others are
+indirectly related to economy such as `schooling`, `BMI`, and vaccine
+coverage (`polio`, `Hepatitis`, and `Measles`). Development level of a
+country determines the amount of resources contributed to education
+(`schooling`) and health care such as vaccine coverage.
+
+Calculate the expected life expectancy using the selected model and
+cleaned data set, then sort the data frame by life expectancy in
+descending order.
+
+```{r}
+data_fitted = data.frame(subset(data_transformed, select = -c(year, percent_exp, hiv_aids, GDP, thinness_5_9, infant_deaths)))
+data_fitted$life_expectancy = predict(fit_simple_fix, newdata = data_cleaned)
+data_fitted = data_fitted[order(data_fitted$life_expectancy, decreasing = TRUE),]
+kable(subset(head(data_fitted, 50), select = c(country, status, life_expectancy, log_GDP)))
+```
+
+Canada, Israel, and France ranks high in above table and are marked as
+developing, but there are no WTO definitions of `developed` and
+`developing` countries. Members may announce themselves as developing to
+gain tax and trade benefits. It's against our common senses to treat
+these three countries equally as Kazakhstan or Uruguay economically. We
+can conclude that economic-developed countries have higher life
+expectancy than developing ones. Circle back to the question we asked in
+introduction about Nepal, the data shows no developed countries have
+lower life expectancy than Nepal. Unfortunately materialism defeats
+spiritual sanctification again. The selected model still has flaws such
+as heteroscedasticity and normality violation. It is definitely not the
+perfect answer, but countries and worldwide organizations can utilize it
+as a guidance on which areas resources and assets should be allocated in
+order to strike for greater longevity for all mankind efficiently.
+
+# Appendix
+
+## Group Members
+
+| Name            | NetID    |
+|-----------------|----------|
+| Xinlei Huang    | xhuang84 |
+| Mohammad Khan   | mfkahn5  |
+| Jaccob Mau      | jcmau2   |
+| Jonathan Temkin | jtemkin3 |
