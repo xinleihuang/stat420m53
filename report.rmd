@@ -577,10 +577,12 @@ cleaned data set, then sort the data frame by life expectancy in
 descending order.
 
 ```{r}
-data_fitted = data.frame(subset(data_transformed, select = -c(year, percent_exp, hiv_aids, GDP, thinness_5_9, infant_deaths)))
-data_fitted$life_expectancy = predict(fit_simple_fix, newdata = data_cleaned)
+data_predict = data_transformed[!duplicated(data_transformed["country"]),]
+data_predict = subset(data_predict, select = -c(life_expectancy))
+data_fitted = data.frame(subset(data_predict, select = -c(year, percent_exp, hiv_aids, GDP, thinness_5_9, infant_deaths)))
+data_fitted$life_expectancy = predict(fit_simple_fix, newdata = data_predict)
 data_fitted = data_fitted[order(data_fitted$life_expectancy, decreasing = TRUE),]
-kable(subset(head(data_fitted, 50), select = c(country, status, life_expectancy, log_GDP)))
+kable(subset(head(data_fitted, 80), select = c(country, status, life_expectancy, log_GDP)))
 ```
 
 Canada, Israel, and France ranks high in above table and are marked as
@@ -597,6 +599,44 @@ as heteroscedasticity and normality violation. It is definitely not the
 perfect answer, but countries and worldwide organizations can utilize it
 as a guidance on which areas resources and assets should be allocated in
 order to strike for greater longevity for all mankind efficiently.
+
+## Prediction vs Explanation
+
+The model above is most useful for prediction as it has the lowest RMSE when we used the test-train method.
+
+So it would be most fit to use when we had data for a new country but we did not know its life expectancy. We could use the model to predict the life expectancy.
+
+However, for explanation purposes, the extremely simple additive model still works best.
+
+We run an exhaustive search and use the variable selection for the model with each number of predictors to get an idea of importance.
+
+```{r warning=FALSE}
+library(leaps)
+all_life_mod = summary(regsubsets(life_expectancy ~ ., data = data_cleaned, nvmax = 6))
+all_life_mod$which
+
+(best_r2_ind = which.max(all_life_mod$adjr2))
+```
+
+Using the analysis above, we can see that if we were limited to a model of n predictors, we would pick the following predictors:
+
+
+| Rank | Predictor                   |
+|------|-----------------------------|
+| 1    | HIV/Aids deaths per 100     |
+| 2    | Hepatitis Immunization      |
+| 3    | Schooling                   |
+| 3    | Adult Mortality             |
+| 5    | %Expenditure on Healthcare  |
+| 6    | Thinness 1-19 years         |
+
+Interpreting the results above, it is clear that Developing countries that are undergoing an HIV epidemic have the lowest life expectancy of all countries. Eradicating HIV/AIDs should greatly boost the life expectancy of countries that are suffering from this epidemic. After HIV/AIDS, immunization is the next best indicator of life expectancy. This makes intuitive sense. Surprisingly, Schooling is also an extremely important predictor of life expectancy. This is definitely feels like it is not causation. It makes intuitive sense that countries with high life expectancy have higher rates of educational attainment since the populations of those countries are less preoccupied with survival. % Expenditure of GDP on healthcare is also another extremely important metric to explain the variability in life expectancy that we have observed. And lastly, prevalence of thinness is also an extremely important predictor. This also makes intuitive sense and countries with a high prevalence of thinness would be served well by eradicating hunger.
+
+Interestingly, the Developed status of a country nor its GDP are within the top few predictors of life expectancy. 
+
+But the important variables are all definitely correlated with GDP and the developed status of a nation.
+Using our simple model to rank models by number of variables has provided us interesting insight into what are the most important factors for governments of countries to be focused on, in order to improve the life expectancy of their people!
+
 
 # Appendix
 
